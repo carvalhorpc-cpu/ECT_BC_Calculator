@@ -9,9 +9,13 @@ h1 { text-align:center; }
 input, select { width: 80px; margin-left:5px; }
 .layer { margin-bottom: 10px; }
 .result { margin-top: 15px; font-weight: bold; }
+.logo { display: block; margin: 0 auto 20px auto; max-width: 200px; }
 </style>
 </head>
 <body>
+
+<!-- Logo CST -->
+<img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" alt="CST Logo" class="logo">
 
 <h1>Cartão BC - Calculadora ECT e BCT</h1>
 
@@ -106,7 +110,6 @@ function calculate(){
   document.getElementById('BCT').innerText = 'Estimated BCT: '+BCT.toFixed(2)+' kg';
 }
 
-// Atualiza cálculo ao mudar dimensões
 ['boxL','boxW','boxH'].forEach(id=>{
   document.getElementById(id).addEventListener('input', calculate);
 });
