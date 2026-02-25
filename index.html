@@ -2,119 +2,117 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Cartão BC - Calculadora ECT/BCT</title>
+<title>ECT / BCT Calculator - CST</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
-h1 { text-align:center; }
-input, select { width: 80px; margin-left:5px; }
-.layer { margin-bottom: 10px; }
-.result { margin-top: 15px; font-weight: bold; }
-.logo { display: block; margin: 0 auto 20px auto; max-width: 200px; }
+body { font-family: Arial; padding:20px; max-width:900px; margin:auto;}
+.logo { display:block; margin:0 auto 20px; max-width:200px;}
+.layer { margin-bottom:10px;}
+.result { font-weight:bold; margin-top:10px;}
 </style>
 </head>
 <body>
 
-<!-- Logo CST -->
-<img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" alt="CST Logo" class="logo">
+<img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" class="logo">
 
-<h1>Cartão BC - Calculadora ECT e BCT</h1>
+<h2>Calculadora Técnica ECT / BCT</h2>
 
-<h3>Dimensões da caixa (mm)</h3>
-L: <input type="number" id="boxL" value="400"> 
-W: <input type="number" id="boxW" value="300"> 
-H: <input type="number" id="boxH" value="200">
+<h3>Dimensões da Caixa (mm)</h3>
+L: <input type="number" id="L" value="400">
+W: <input type="number" id="W" value="300">
+H: <input type="number" id="H" value="200">
 
-<h3>Layers (3 a 5)</h3>
+<h3>Layers</h3>
 <div id="layers"></div>
 <button onclick="addLayer()">Adicionar Layer</button>
 <button onclick="removeLayer()">Remover Layer</button>
 
-<div class="result" id="totalSCT"></div>
 <div class="result" id="ECT"></div>
 <div class="result" id="BCT"></div>
 
 <script>
-let layersData = [
-  {type:'Kraft', grammage:130},
-  {type:'Fluting', grammage:120},
-  {type:'Kraft', grammage:130}
+let layers = [
+ {type:"Kraft", grammage:130, wave:""},
+ {type:"Fluting", grammage:120, wave:"C"},
+ {type:"Kraft", grammage:130, wave:""}
 ];
 
-function renderLayers(){
-  const container = document.getElementById('layers');
-  container.innerHTML = '';
-  layersData.forEach((layer,i)=>{
-    const div = document.createElement('div');
-    div.className = 'layer';
-    div.innerHTML = `Layer ${i+1}: 
-      <select onchange="updateLayerType(${i}, this.value)">
-        <option value="">--</option>
-        <option value="Kraft" ${layer.type==='Kraft'?'selected':''}>Kraft</option>
-        <option value="Testliner" ${layer.type==='Testliner'?'selected':''}>Testliner</option>
-        <option value="Fluting" ${layer.type==='Fluting'?'selected':''}>Fluting</option>
-        <option value="Fluting Semi-Quimico" ${layer.type==='Fluting Semi-Quimico'?'selected':''}>Fluting Semi-Quimico</option>
-      </select>
-      Gramagem: <input type='number' value='${layer.grammage}' onchange='updateLayerGrammage(${i}, this.value)'> g/m²
-    `;
-    container.appendChild(div);
-  });
-  calculate();
+function factorWave(wave){
+ if(wave=="B") return 1.36;
+ if(wave=="C") return 1.44;
+ return 1;
 }
 
-function updateLayerType(index, value){
-  layersData[index].type = value;
-  calculate();
+function sctBase(type,g){
+ if(type=="Kraft") return g*0.22;
+ if(type=="Testliner") return g*0.20;
+ if(type=="Fluting") return g*0.18;
+ if(type=="Semi-Quimico") return g*0.21;
+ return 0;
 }
 
-function updateLayerGrammage(index, value){
-  layersData[index].grammage = parseFloat(value)||0;
-  calculate();
+function render(){
+ const div=document.getElementById("layers");
+ div.innerHTML="";
+ layers.forEach((l,i)=>{
+   div.innerHTML+=`
+   <div class="layer">
+   Layer ${i+1}:
+   <select onchange="layers[${i}].type=this.value;calculate()">
+   <option ${l.type=="Kraft"?"selected":""}>Kraft</option>
+   <option ${l.type=="Testliner"?"selected":""}>Testliner</option>
+   <option ${l.type=="Fluting"?"selected":""}>Fluting</option>
+   <option ${l.type=="Semi-Quimico"?"selected":""}>Semi-Quimico</option>
+   </select>
+   g/m² <input type="number" value="${l.grammage}" onchange="layers[${i}].grammage=this.value;calculate()">
+   Onda:
+   <select onchange="layers[${i}].wave=this.value;calculate()">
+   <option value="">--</option>
+   <option value="B" ${l.wave=="B"?"selected":""}>B</option>
+   <option value="C" ${l.wave=="C"?"selected":""}>C</option>
+   </select>
+   </div>`;
+ });
+ calculate();
 }
 
 function addLayer(){
-  if(layersData.length<5){
-    layersData.push({type:'', grammage:0});
-    renderLayers();
-  }
+ if(layers.length<5){
+   layers.push({type:"Kraft",grammage:120,wave:""});
+   render();
+ }
 }
 
 function removeLayer(){
-  if(layersData.length>3){
-    layersData.pop();
-    renderLayers();
-  }
-}
-
-function calcSCT(layer){
-  const g = layer.grammage || 0;
-  switch(layer.type){
-    case 'Kraft': return g*0.22;
-    case 'Testliner': return g*0.20;
-    case 'Fluting': return g*0.18;
-    case 'Fluting Semi-Quimico': return g*0.20;
-    default: return 0;
-  }
+ if(layers.length>3){
+   layers.pop();
+   render();
+ }
 }
 
 function calculate(){
-  let totalSCT = layersData.reduce((sum,l)=>sum+calcSCT(l),0);
-  let ECTFactor = 0.75;
-  let ECT = totalSCT*ECTFactor;
-  let thickness_mm = layersData.reduce((sum,l)=>sum+(l.grammage||0),0);
-  let L = parseFloat(document.getElementById('boxL').value)||0;
-  let W = parseFloat(document.getElementById('boxW').value)||0;
-  let BCT = 5.87*ECT*Math.sqrt(2*((L/1000)+(W/1000))*(thickness_mm/1000));
+ let total=0;
 
-  document.getElementById('totalSCT').innerText = 'Total SCT: '+totalSCT.toFixed(2)+' kN/m';
-  document.getElementById('ECT').innerText = 'ECT: '+ECT.toFixed(2)+' kN/m';
-  document.getElementById('BCT').innerText = 'Estimated BCT: '+BCT.toFixed(2)+' kg';
+ layers.forEach(l=>{
+   let sct=sctBase(l.type,parseFloat(l.grammage)||0);
+   if(l.type=="Fluting" || l.type=="Semi-Quimico"){
+     sct*=factorWave(l.wave);
+   }
+   total+=sct;
+ });
+
+ let ECT=0.75*total;
+
+ let L=parseFloat(document.getElementById("L").value)||0;
+ let W=parseFloat(document.getElementById("W").value)||0;
+ let thickness=layers.reduce((s,l)=>s+(l.grammage||0),0)/1000;
+
+ let BCT=5.87*ECT*Math.sqrt(2*((L/1000)+(W/1000))*thickness);
+
+ document.getElementById("ECT").innerHTML="ECT estimado: "+ECT.toFixed(2)+" kN/m";
+ document.getElementById("BCT").innerHTML="BCT estimado: "+BCT.toFixed(2)+" kg";
 }
 
-['boxL','boxW','boxH'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', calculate);
-});
-
-renderLayers();
+render();
 </script>
 
 </body>
