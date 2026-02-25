@@ -2,114 +2,157 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>ECT / BCT Calculator - CST</title>
+<title>ECT / BCT Interno CST - FEFCO 0201</title>
 <style>
-body { font-family: Arial; padding:20px; max-width:900px; margin:auto;}
+body { font-family: Arial; padding:20px; max-width:950px; margin:auto;}
 .logo { display:block; margin:0 auto 20px; max-width:200px;}
 .layer { margin-bottom:10px;}
 .result { font-weight:bold; margin-top:10px;}
+input { width:90px; margin-right:10px;}
 </style>
 </head>
 <body>
 
 <img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" class="logo">
 
-<h2>Calculadora Técnica ECT / BCT</h2>
+<h2>Calculadora Interna ECT / BCT - FEFCO 0201</h2>
 
 <h3>Dimensões da Caixa (mm)</h3>
 L: <input type="number" id="L" value="400">
 W: <input type="number" id="W" value="300">
-H: <input type="number" id="H" value="200">
+H: <input type="number" id="H" value="200"><br><br>
 
-<h3>Layers</h3>
+Espessura cartão (mm):
+<input type="number" id="thickness" value="6">
+
+<h3>Parâmetros Técnicos</h3>
+Constante McKee (k): <input type="number" id="k" value="5.87" step="0.01">
+Humidade relativa (%): <input type="number" id="rh" value="50">
+Fator de segurança: <input type="number" id="sf" value="3">
+
+<h3>Layers (3 a 5)</h3>
 <div id="layers"></div>
 <button onclick="addLayer()">Adicionar Layer</button>
 <button onclick="removeLayer()">Remover Layer</button>
 
-<div class="result" id="ECT"></div>
+<h3>Máquina / Folha Master</h3>
+Largura máxima máquina (mm): <input type="number" id="maxMachine" value="1600"><br>
+Comprimento máximo máquina (mm): <input type="number" id="maxLength" value="3100"><br><br>
+Folha master comprimento (mm): <input type="number" id="masterL" value="2500">
+Folha master largura (mm): <input type="number" id="masterW" value="1400">
+
+<div class="result" id="ECTraw"></div>
+<div class="result" id="ECTcorr"></div>
 <div class="result" id="BCT"></div>
+<div class="result" id="SafeLoad"></div>
+<div class="result" id="plateSize"></div>
+<div class="result" id="machineCheck"></div>
+<div class="result" id="sheetUse"></div>
 
 <script>
 let layers = [
- {type:"Kraft", grammage:130, wave:""},
- {type:"Fluting", grammage:120, wave:"C"},
- {type:"Kraft", grammage:130, wave:""}
+ {type:"Liner", sct:30, wave:""},
+ {type:"Fluting", sct:22, wave:"C"},
+ {type:"Liner", sct:30, wave:""}
 ];
 
-function factorWave(wave){
- if(wave=="B") return 1.36;
- if(wave=="C") return 1.44;
+function waveFactor(w){
+ if(w=="B") return 1.36;
+ if(w=="C") return 1.44;
  return 1;
-}
-
-function sctBase(type,g){
- if(type=="Kraft") return g*0.22;
- if(type=="Testliner") return g*0.20;
- if(type=="Fluting") return g*0.18;
- if(type=="Semi-Quimico") return g*0.21;
- return 0;
 }
 
 function render(){
  const div=document.getElementById("layers");
  div.innerHTML="";
  layers.forEach((l,i)=>{
-   div.innerHTML+=`
-   <div class="layer">
-   Layer ${i+1}:
-   <select onchange="layers[${i}].type=this.value;calculate()">
-   <option ${l.type=="Kraft"?"selected":""}>Kraft</option>
-   <option ${l.type=="Testliner"?"selected":""}>Testliner</option>
-   <option ${l.type=="Fluting"?"selected":""}>Fluting</option>
-   <option ${l.type=="Semi-Quimico"?"selected":""}>Semi-Quimico</option>
-   </select>
-   g/m² <input type="number" value="${l.grammage}" onchange="layers[${i}].grammage=this.value;calculate()">
-   Onda:
-   <select onchange="layers[${i}].wave=this.value;calculate()">
+  div.innerHTML+=`
+  <div class="layer">
+  Layer ${i+1} Tipo:
+  <select onchange="layers[${i}].type=this.value;calculate()">
+   <option value="Liner" ${l.type=="Liner"?"selected":""}>Liner</option>
+   <option value="Fluting" ${l.type=="Fluting"?"selected":""}>Fluting</option>
+  </select>
+  SCT real (kN/m):
+  <input type="number" value="${l.sct}" step="0.1" onchange="layers[${i}].sct=parseFloat(this.value)||0;calculate()">
+  Onda:
+  <select onchange="layers[${i}].wave=this.value;calculate()">
    <option value="">--</option>
    <option value="B" ${l.wave=="B"?"selected":""}>B</option>
    <option value="C" ${l.wave=="C"?"selected":""}>C</option>
-   </select>
-   </div>`;
+  </select>
+  </div>`;
  });
  calculate();
 }
 
 function addLayer(){
  if(layers.length<5){
-   layers.push({type:"Kraft",grammage:120,wave:""});
-   render();
+  layers.push({type:"Liner", sct:0, wave:""});
+  render();
  }
 }
 
 function removeLayer(){
  if(layers.length>3){
-   layers.pop();
-   render();
+  layers.pop();
+  render();
  }
 }
 
 function calculate(){
- let total=0;
-
+ let totalSCT=0;
  layers.forEach(l=>{
-   let sct=sctBase(l.type,parseFloat(l.grammage)||0);
-   if(l.type=="Fluting" || l.type=="Semi-Quimico"){
-     sct*=factorWave(l.wave);
-   }
-   total+=sct;
+  let s=parseFloat(l.sct)||0;
+  if(l.type=="Fluting"){
+   s*=waveFactor(l.wave);
+  }
+  totalSCT+=s;
  });
 
- let ECT=0.75*total;
+ let ECT=0.75*totalSCT;
+ let rh=parseFloat(document.getElementById("rh").value)||50;
+ let humidityFactor=1-0.01*(rh-50);
+ if(humidityFactor<0) humidityFactor=0;
+ let ECTcorr=ECT*humidityFactor;
 
  let L=parseFloat(document.getElementById("L").value)||0;
  let W=parseFloat(document.getElementById("W").value)||0;
- let thickness=layers.reduce((s,l)=>s+(l.grammage||0),0)/1000;
+ let H=parseFloat(document.getElementById("H").value)||0;
+ let t=parseFloat(document.getElementById("thickness").value)||0;
 
- let BCT=5.87*ECT*Math.sqrt(2*((L/1000)+(W/1000))*thickness);
+ let k=parseFloat(document.getElementById("k").value)||5.87;
+ let sf=parseFloat(document.getElementById("sf").value)||1;
 
- document.getElementById("ECT").innerHTML="ECT estimado: "+ECT.toFixed(2)+" kN/m";
+ let perimeter=2*((L/1000)+(W/1000));
+ let BCT=k*ECTcorr*Math.sqrt(perimeter*(t/1000));
+ let safeLoad=BCT/sf;
+
+ document.getElementById("ECTraw").innerHTML="ECT calculado: "+ECT.toFixed(2)+" kN/m";
+ document.getElementById("ECTcorr").innerHTML="ECT corrigido por humidade: "+ECTcorr.toFixed(2)+" kN/m";
  document.getElementById("BCT").innerHTML="BCT estimado: "+BCT.toFixed(2)+" kg";
+ document.getElementById("SafeLoad").innerHTML="Carga segura recomendada: "+safeLoad.toFixed(2)+" kg";
+
+ // cálculo placa FEFCO 0201
+ let glue=30;
+ let plateLength=2*L+2*W+glue+2*t;
+ let plateWidth=H+W+t;
+ document.getElementById("plateSize").innerHTML="Placa necessária: "+plateLength.toFixed(0)+" x "+plateWidth.toFixed(0)+" mm";
+
+ let maxLength=parseFloat(document.getElementById("maxLength").value)||3100;
+ let maxMachine=parseFloat(document.getElementById("maxMachine").value)||1600;
+ if(plateLength>maxLength || plateWidth>maxMachine){
+  document.getElementById("machineCheck").innerHTML="🔴 Fora da capacidade da máquina!";
+ } else {
+  document.getElementById("machineCheck").innerHTML="🟢 Placa dentro da capacidade da máquina";
+ }
+
+ let masterL=parseFloat(document.getElementById("masterL").value)||2500;
+ let masterW=parseFloat(document.getElementById("masterW").value)||1400;
+ let fitL=Math.floor(masterL/plateLength);
+ let fitW=Math.floor(masterW/plateWidth);
+ let totalPerSheet=fitL*fitW;
+ document.getElementById("sheetUse").innerHTML="Caixas por folha master: "+totalPerSheet;
 }
 
 render();
