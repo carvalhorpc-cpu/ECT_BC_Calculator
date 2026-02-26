@@ -2,25 +2,19 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title> Interno CST</title>
+<title>CST Industrial Packaging Tool</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-body { font-family: Arial; margin:0; background:#f4f6f8; }
-.container { max-width:1100px; margin:auto; padding:20px; }
-.logo { display:block; margin:0 auto 20px; max-width:180px;}
-.section {
-  background:white;
-  padding:15px;
-  margin-bottom:20px;
-  border-radius:8px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.08);
-}
+body { font-family: Arial; background:#f4f6f8; margin:0; }
+.container { max-width:1200px; margin:auto; padding:20px; }
+.section { background:white; padding:15px; margin-bottom:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.08);}
 h2 { text-align:center; }
 input, select { width:100px; margin:5px; }
-.layer { margin-bottom:8px; }
-.result { font-weight:bold; font-size:16px; margin-top:8px; }
-.green { color:green; }
-.red { color:red; }
-button { margin:5px; padding:5px 10px; }
+.result { font-weight:bold; margin-top:5px; }
+button { padding:6px 12px; margin-top:10px; }
+canvas { max-width:500px; margin:auto; display:block; }
+.logo { display:block; margin:0 auto 15px; max-width:180px;}
 </style>
 </head>
 <body>
@@ -29,183 +23,116 @@ button { margin:5px; padding:5px 10px; }
 
 <img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" class="logo">
 
-<h2>Ferramenta Interna CST – ECT / BCT + FEFCO</h2>
+<h2>CST Industrial Packaging Tool</h2>
 
 <div class="section">
-<h3>Dimensões da Caixa (mm)</h3>
-L: <input type="number" id="L" value="400">
-W: <input type="number" id="W" value="300">
-H: <input type="number" id="H" value="200">
-Espessura cartão (mm):
-<input type="number" id="thickness" value="6">
+<h3>Dimensões Caixa (mm)</h3>
+L <input id="L" type="number" value="400">
+W <input id="W" type="number" value="300">
+H <input id="H" type="number" value="200">
+Espessura <input id="t" type="number" value="6">
 </div>
 
 <div class="section">
-<h3>Modelo FEFCO</h3>
-<select id="fefco" onchange="calculate()">
-  <option value="0200">0200</option>
-  <option value="0201" selected>0201</option>
-  <option value="0203">0203</option>
-</select>
+<h3>Material</h3>
+ECT (kN/m) <input id="ECTinput" type="number" value="7">
+Gramagem (g/m²) <input id="gsm" type="number" value="550">
+Custo cartão €/ton <input id="costTon" type="number" value="900">
 </div>
 
 <div class="section">
-<h3>Estrutura do Cartão</h3>
-<div id="layers"></div>
-<button onclick="addLayer()">Adicionar Layer</button>
-<button onclick="removeLayer()">Remover Layer</button>
+<h3>Folha Master</h3>
+Comp <input id="masterL" type="number" value="2500">
+Larg <input id="masterW" type="number" value="1400">
 </div>
 
 <div class="section">
-<h3>Máquina / Folha Master</h3>
-Folha master comprimento (mm):
-<input type="number" id="masterL" value="2500">
-Folha master largura (mm):
-<input type="number" id="masterW" value="1400">
-
-<div class="result" id="plateSize"></div>
-<div class="result" id="machineCheck"></div>
-<div class="result" id="sheetUse"></div>
+<h3>Palete</h3>
+Altura palete (mm) <input id="palletH" type="number" value="1500">
+Altura base (mm) <input id="baseH" type="number" value="150">
 </div>
 
 <div class="section">
-<h3>Resultados Estruturais</h3>
-<div class="result" id="ECT"></div>
-<div class="result" id="BCT"></div>
-<div class="result" id="SafeLoad"></div>
+<button onclick="calculate()">Calcular</button>
+<button onclick="exportPDF()">Exportar PDF</button>
+
+<div id="results"></div>
+<canvas id="chart"></canvas>
 </div>
 
 </div>
 
 <script>
 
-// CONSTANTES INTERNAS
-const k = 5.87;
-const humidityFactor = 1;
-const safetyFactor = 3;
-const glue = 30;
-const maxLength = 3100;
-const maxWidth = 1600;
+const k=5.87;
+const safety=3;
 
-let layers = [
- {type:"Liner", sct:30, wave:""},
- {type:"Fluting", sct:22, wave:"C"},
- {type:"Liner", sct:30, wave:""}
-];
-
-function waveFactor(w){
- if(w=="B") return 1.36;
- if(w=="C") return 1.44;
- return 1;
-}
-
-function render(){
- const div=document.getElementById("layers");
- div.innerHTML="";
- layers.forEach((l,i)=>{
-  div.innerHTML+=`
-  <div class="layer">
-  Layer ${i+1}
-  <select onchange="layers[${i}].type=this.value;calculate()">
-   <option value="Liner" ${l.type=="Liner"?"selected":""}>Liner</option>
-   <option value="Fluting" ${l.type=="Fluting"?"selected":""}>Fluting</option>
-  </select>
-  SCT:
-  <input type="number" value="${l.sct}" step="0.1"
-   onchange="layers[${i}].sct=parseFloat(this.value)||0;calculate()">
-  Onda:
-  <select onchange="layers[${i}].wave=this.value;calculate()">
-   <option value="">--</option>
-   <option value="B" ${l.wave=="B"?"selected":""}>B</option>
-   <option value="C" ${l.wave=="C"?"selected":""}>C</option>
-  </select>
-  </div>`;
- });
- calculate();
-}
-
-function addLayer(){
- if(layers.length<5){
-  layers.push({type:"Liner", sct:0, wave:""});
-  render();
- }
-}
-
-function removeLayer(){
- if(layers.length>3){
-  layers.pop();
-  render();
- }
-}
+let chart;
 
 function calculate(){
 
- let totalSCT=0;
- layers.forEach(l=>{
-  let s=parseFloat(l.sct)||0;
-  if(l.type=="Fluting"){
-   s*=waveFactor(l.wave);
-  }
-  totalSCT+=s;
- });
+let L=+document.getElementById("L").value;
+let W=+document.getElementById("W").value;
+let H=+document.getElementById("H").value;
+let t=+document.getElementById("t").value;
+let ECT=+document.getElementById("ECTinput").value;
+let gsm=+document.getElementById("gsm").value;
+let costTon=+document.getElementById("costTon").value;
+let masterL=+document.getElementById("masterL").value;
+let masterW=+document.getElementById("masterW").value;
+let palletH=+document.getElementById("palletH").value;
+let baseH=+document.getElementById("baseH").value;
 
- let ECT=0.75*totalSCT;
- let ECTcorr=ECT*humidityFactor;
+let perimeter=2*((L/1000)+(W/1000));
+let BCT=k*ECT*Math.sqrt(perimeter*(t/1000));
+let safe=BCT/safety;
 
- let L=parseFloat(document.getElementById("L").value)||0;
- let W=parseFloat(document.getElementById("W").value)||0;
- let H=parseFloat(document.getElementById("H").value)||0;
- let t=parseFloat(document.getElementById("thickness").value)||0;
+let plateL=2*L+2*W+30+2*t;
+let plateW=H+W+t;
 
- let perimeter=2*((L/1000)+(W/1000));
+let fitL=Math.floor(masterL/plateL);
+let fitW=Math.floor(masterW/plateW);
+let perSheet=fitL*fitW;
 
- let model=document.getElementById("fefco").value;
+let plateArea=(plateL/1000)*(plateW/1000);
+let weight=(plateArea*gsm)/1000;
+let costPerKg=costTon/1000;
+let costBox=weight*costPerKg;
 
- let modelFactor=1;
- if(model=="0200") modelFactor=0.95;
- if(model=="0201") modelFactor=1.00;
- if(model=="0203") modelFactor=1.15;
+let layers=Math.floor((palletH-baseH)/H);
+let boxesPerPallet=layers* (Math.floor(1200/L)*Math.floor(800/W));
 
- let BCT=k*ECTcorr*Math.sqrt(perimeter*(t/1000));
- BCT=BCT*modelFactor;
+document.getElementById("results").innerHTML=
+"Placa: "+plateL.toFixed(0)+"x"+plateW.toFixed(0)+" mm<br>"+
+"BCT: "+BCT.toFixed(1)+" kg<br>"+
+"Carga segura: "+safe.toFixed(1)+" kg<br>"+
+"Caixas/folha: "+perSheet+"<br>"+
+"Peso caixa: "+weight.toFixed(2)+" kg<br>"+
+"Custo estimado/caixa: €"+costBox.toFixed(2)+"<br>"+
+"Caixas por palete: "+boxesPerPallet;
 
- let safeLoad=BCT/safetyFactor;
+if(chart) chart.destroy();
 
- document.getElementById("ECT").innerHTML="ECT calculado: "+ECT.toFixed(2)+" kN/m";
- document.getElementById("BCT").innerHTML="BCT estimado: "+BCT.toFixed(2)+" kg";
- document.getElementById("SafeLoad").innerHTML="Carga segura recomendada: "+safeLoad.toFixed(2)+" kg";
+chart=new Chart(document.getElementById('chart'),{
+type:'bar',
+data:{
+labels:['BCT','Carga Segura'],
+datasets:[{
+label:'kg',
+data:[BCT,safe]
+}]
+}
+});
 
- // Cálculo placa
- let plateLength=2*L+2*W+glue+2*t;
- let plateWidth=0;
-
- if(model=="0200") plateWidth=H;
- if(model=="0201") plateWidth=H+W+t;
- if(model=="0203") plateWidth=H+2*W+t;
-
- document.getElementById("plateSize").innerHTML=
- "Placa necessária ("+model+"): "+plateLength.toFixed(0)+" x "+plateWidth.toFixed(0)+" mm";
-
- if(plateLength>maxLength || plateWidth>maxWidth){
-  document.getElementById("machineCheck").innerHTML=
-  "<span class='red'>FORA da capacidade da máquina (3100x1600)</span>";
- } else {
-  document.getElementById("machineCheck").innerHTML=
-  "<span class='green'>Dentro da capacidade da máquina</span>";
- }
-
- let masterL=parseFloat(document.getElementById("masterL").value)||0;
- let masterW=parseFloat(document.getElementById("masterW").value)||0;
-
- let fitL=Math.floor(masterL/plateLength);
- let fitW=Math.floor(masterW/plateWidth);
- let totalPerSheet=fitL*fitW;
-
- document.getElementById("sheetUse").innerHTML=
- "Caixas por folha master: "+totalPerSheet;
 }
 
-render();
+async function exportPDF(){
+const { jsPDF } = window.jspdf;
+let doc=new jsPDF();
+doc.text("CST Industrial Packaging Report",20,20);
+doc.text(document.getElementById("results").innerText,20,40);
+doc.save("CST_Report.pdf");
+}
 
 </script>
 
