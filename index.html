@@ -29,7 +29,7 @@ input, select { width:90px; margin:5px; }
 
 <img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" class="logo">
 
-<h2>Ferramenta Interna CST – ECT / BCT + FEFCO 0201</h2>
+<h2>Ferramenta Interna CST – ECT / BCT + FEFCO </h2>
 
 <div class="section">
 <h3>Dimensões da Caixa (mm)</h3>
@@ -38,6 +38,12 @@ W: <input type="number" id="W" value="300">
 H: <input type="number" id="H" value="200">
 Espessura cartão (mm):
 <input type="number" id="thickness" value="6">
+  <h3>Modelo FEFCO</h3>
+<select id="fefco" onchange="calculate()">
+  <option value="0200">0200</option>
+  <option value="0201" selected>0201</option>
+  <option value="0203">0203</option>
+</select>
 </div>
 
 <div class="section">
