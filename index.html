@@ -15,12 +15,12 @@ body { font-family: Arial; margin:0; background:#f4f6f8; }
   box-shadow:0 2px 6px rgba(0,0,0,0.08);
 }
 h2 { text-align:center; }
-h3 { margin-top:0; }
-input, select { width:90px; margin:5px; }
+input, select { width:100px; margin:5px; }
 .layer { margin-bottom:8px; }
 .result { font-weight:bold; font-size:16px; margin-top:8px; }
 .green { color:green; }
 .red { color:red; }
+button { margin:5px; padding:5px 10px; }
 </style>
 </head>
 <body>
@@ -29,7 +29,7 @@ input, select { width:90px; margin:5px; }
 
 <img src="https://www.cst.pt/assets/img/logo/CST%20logo.png" class="logo">
 
-<h2>Ferramenta Interna CST – ECT / BCT + FEFCO </h2>
+<h2>Ferramenta Interna CST – ECT / BCT + FEFCO</h2>
 
 <div class="section">
 <h3>Dimensões da Caixa (mm)</h3>
@@ -38,7 +38,10 @@ W: <input type="number" id="W" value="300">
 H: <input type="number" id="H" value="200">
 Espessura cartão (mm):
 <input type="number" id="thickness" value="6">
-  <h3>Modelo FEFCO</h3>
+</div>
+
+<div class="section">
+<h3>Modelo FEFCO</h3>
 <select id="fefco" onchange="calculate()">
   <option value="0200">0200</option>
   <option value="0201" selected>0201</option>
@@ -78,7 +81,7 @@ Folha master largura (mm):
 
 // CONSTANTES INTERNAS
 const k = 5.87;
-const humidityFactor = 1; // RH 50%
+const humidityFactor = 1;
 const safetyFactor = 3;
 const glue = 30;
 const maxLength = 3100;
@@ -107,7 +110,7 @@ function render(){
    <option value="Liner" ${l.type=="Liner"?"selected":""}>Liner</option>
    <option value="Fluting" ${l.type=="Fluting"?"selected":""}>Fluting</option>
   </select>
-  SCT (kN/m):
+  SCT:
   <input type="number" value="${l.sct}" step="0.1"
    onchange="layers[${i}].sct=parseFloat(this.value)||0;calculate()">
   Onda:
@@ -155,19 +158,33 @@ function calculate(){
  let t=parseFloat(document.getElementById("thickness").value)||0;
 
  let perimeter=2*((L/1000)+(W/1000));
+
+ let model=document.getElementById("fefco").value;
+
+ let modelFactor=1;
+ if(model=="0200") modelFactor=0.95;
+ if(model=="0201") modelFactor=1.00;
+ if(model=="0203") modelFactor=1.15;
+
  let BCT=k*ECTcorr*Math.sqrt(perimeter*(t/1000));
+ BCT=BCT*modelFactor;
+
  let safeLoad=BCT/safetyFactor;
 
  document.getElementById("ECT").innerHTML="ECT calculado: "+ECT.toFixed(2)+" kN/m";
  document.getElementById("BCT").innerHTML="BCT estimado: "+BCT.toFixed(2)+" kg";
  document.getElementById("SafeLoad").innerHTML="Carga segura recomendada: "+safeLoad.toFixed(2)+" kg";
 
- // Placa FEFCO 0201
+ // Cálculo placa
  let plateLength=2*L+2*W+glue+2*t;
- let plateWidth=H+W+t;
+ let plateWidth=0;
+
+ if(model=="0200") plateWidth=H;
+ if(model=="0201") plateWidth=H+W+t;
+ if(model=="0203") plateWidth=H+2*W+t;
 
  document.getElementById("plateSize").innerHTML=
- "Placa necessária: "+plateLength.toFixed(0)+" x "+plateWidth.toFixed(0)+" mm";
+ "Placa necessária ("+model+"): "+plateLength.toFixed(0)+" x "+plateWidth.toFixed(0)+" mm";
 
  if(plateLength>maxLength || plateWidth>maxWidth){
   document.getElementById("machineCheck").innerHTML=
